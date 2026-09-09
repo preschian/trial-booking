@@ -15,6 +15,7 @@ export type BookingError =
   | "not_found"
   | "duplicate"
   | "class_full"
+  | "class_started"
   | "not_pending"
   | "invalid_input";
 
@@ -34,6 +35,11 @@ const resumableStatuses = [
 
 function now(): string {
   return new Date().toISOString();
+}
+
+export function classHasStarted(startsAt: string, at = new Date()) {
+  const start = Date.parse(startsAt);
+  return Number.isNaN(start) || start <= at.getTime();
 }
 
 function isUniqueConflict(error: unknown): boolean {
@@ -133,6 +139,10 @@ export function startTrialBooking(
 
       if (existing?.status === "confirmed") {
         return { ok: false, error: "duplicate" };
+      }
+
+      if (classHasStarted(trialClass.startsAt)) {
+        return { ok: false, error: "class_started" };
       }
 
       if (existing?.status === "pending_payment") {
@@ -236,6 +246,20 @@ export function settlePayment(
         return { ok: false, error: "not_pending" };
       }
 
+      const trialClass = store
+        .select()
+        .from(trialClasses)
+        .where(eq(trialClasses.id, booking.classId))
+        .get();
+
+      if (!trialClass) {
+        return { ok: false, error: "not_found" };
+      }
+
+      if (classHasStarted(trialClass.startsAt) && input.result === "success") {
+        return { ok: false, error: "class_started" };
+      }
+
       store
         .insert(paymentAttempts)
         .values({ bookingId: booking.id, result: input.result })
@@ -258,16 +282,6 @@ export function settlePayment(
         }
 
         return { ok: true, status: "payment_failed" };
-      }
-
-      const trialClass = store
-        .select()
-        .from(trialClasses)
-        .where(eq(trialClasses.id, booking.classId))
-        .get();
-
-      if (!trialClass) {
-        return { ok: false, error: "not_found" };
       }
 
       const taken = confirmedCount(store, booking.classId);

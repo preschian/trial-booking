@@ -21,18 +21,18 @@ pnpm test            # booking invariants
 pnpm exec react-doctor --yes --scope full
 ```
 
-The SQLite file lives at `data/trial-booking.db` and is created on first run. `pnpm db:seed` resets the synthetic dataset.
+The SQLite file lives at `data/trial-booking.db` and is created on first run. `pnpm db:seed` resets the synthetic dataset. `DATABASE_PATH=/tmp/custom.db pnpm db:seed` resets that file instead.
 
 ## What I built
 
 - Parent booking flow: choose a demo parent, select a child and class, then mock-pay
 - Booking status after payment, including last-seat loss
 - Teacher roster of confirmed students
-- Tests for duplicates, payment failure, last-seat overbooking, ownership, retries, and invalid error query keys
+- Tests for duplicates, payment failure, last-seat overbooking, concurrent last-seat settlement, ownership, retries, past classes, and invalid error query keys
 
 ## Time spent
 
-About 1.5 hours.
+About 2 hours.
 
 ## Assumptions
 
@@ -41,6 +41,7 @@ About 1.5 hours.
 - `pending_payment` does **not** hold a seat. Selection can race; confirmation cannot.
 - `seat_unavailable` means the mock payment succeeded and no seat was taken. It does not run a real refund.
 - One booking row per child+class. A failed payment can be retried on the same row.
+- A class that has already started cannot be booked or confirmed. Seed class times are a week out so the demo stays bookable.
 - Demo parent cookies are per browser profile. Use one normal window and one private/incognito window for the last-seat race.
 
 ## Seed data
@@ -92,7 +93,7 @@ Confirmation uses a SQLite `BEGIN IMMEDIATE` transaction:
 3. If `confirmed >= capacity`, set `seat_unavailable`
 4. Otherwise set `confirmed`
 
-Writers take the write lock at the start of the transaction, so the confirmed count cannot change under the check. At most one of those payments becomes a roster seat.
+Writers take the write lock at the start of the transaction, so the confirmed count cannot change under the check. At most one of those payments becomes a roster seat. A two-process test settles both payments on separate connections against the same SQLite file.
 
 **Why this approach:** it matches the required scenario (both users can select the last slot), stays correct on a single SQLite file, and is easy to test. Postgres `SELECT FOR UPDATE` would be the production analog.
 
@@ -103,6 +104,7 @@ Writers take the write lock at the start of the transaction, so the confirmed co
 | Check | UI | Backend | Database | Job |
 | --- | --- | --- | --- | --- |
 | Remaining seats | display only; full classes disabled | yes, at confirm | no | no |
+| Class already started | started classes disabled | yes, at start and confirm | no | no |
 | Duplicate child+class | error copy | yes | unique index | no |
 | Parent owns child | hidden by the form | yes | no | no |
 | Payment failure stays off roster | status page | yes | status value | no |

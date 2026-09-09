@@ -10,6 +10,7 @@ type ClassOption = {
   startsLabel: string;
   seatsRemaining: number;
   capacity: number;
+  hasStarted: boolean;
 };
 
 const initialState = { error: null as string | null };
@@ -51,27 +52,31 @@ export function BookForm({
       <fieldset className="class-list">
         <legend>Trial class</legend>
         {classes.map((trialClass) => {
+          const started = trialClass.hasStarted;
           const full = trialClass.seatsRemaining === 0;
+          const unavailable = started || full;
           return (
             <label
               key={trialClass.id}
-              className={full ? "class-card is-full" : "class-card"}
+              className={unavailable ? "class-card is-full" : "class-card"}
             >
               <input
                 type="radio"
                 name="classId"
                 value={trialClass.id}
                 required
-                disabled={full}
+                disabled={unavailable}
               />
               <span>
                 <strong>{trialClass.title}</strong>
                 <em>{trialClass.startsLabel}</em>
                 <small>
-                  {full
-                    ? "Class is full"
-                    : `${trialClass.seatsRemaining} of ${trialClass.capacity} seats open`}
-                  {trialClass.seatsRemaining === 1
+                  {started
+                    ? "Class has started"
+                    : full
+                      ? "Class is full"
+                      : `${trialClass.seatsRemaining} of ${trialClass.capacity} seats open`}
+                  {!started && trialClass.seatsRemaining === 1
                     ? " · Last seat — payment claims it, not this selection"
                     : null}
                 </small>

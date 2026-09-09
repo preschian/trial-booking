@@ -1,9 +1,9 @@
 import "server-only";
 
-import { createAppDb, defaultDatabasePath } from "./client";
+import { createAppDb, resolveDatabasePath } from "./client";
 import { seedIfEmpty } from "./seed";
 
-const DATABASE_PATH = process.env.DATABASE_PATH ?? defaultDatabasePath;
+const DATABASE_PATH = resolveDatabasePath();
 
 function getAppDb() {
   const appDb = createAppDb(DATABASE_PATH);

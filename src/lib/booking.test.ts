@@ -1,13 +1,23 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { eq } from "drizzle-orm";
-import { createAppDb } from "../db/client";
-import { bookings, paymentAttempts } from "../db/schema";
+import {
+  createAppDb,
+  defaultDatabasePath,
+  resolveDatabasePath,
+} from "../db/client";
+import { bookings, paymentAttempts, trialClasses } from "../db/schema";
 import { seedDatabase } from "../db/seed";
-import { settlePayment, startTrialBooking } from "./booking";
+import {
+  settlePayment,
+  startTrialBooking,
+  type SettlePaymentResult,
+} from "./booking";
 import { errorCopy, errorMessageForQuery } from "./copy";
 
 const tempDir = mkdtempSync(path.join(tmpdir(), "trial-booking-"));
@@ -29,6 +39,36 @@ function confirmedForClass(classId: number) {
     .where(eq(bookings.classId, classId))
     .all()
     .filter((row) => row.status === "confirmed").length;
+}
+
+function settleInWorker(input: {
+  parentId: number;
+  bookingId: number;
+  result: "success" | "failure";
+}) {
+  const script = fileURLToPath(
+    new URL("./settle-payment-worker.ts", import.meta.url),
+  );
+
+  return new Promise<SettlePaymentResult>((resolve, reject) => {
+    execFile(
+      "pnpm",
+      ["exec", "tsx", script, JSON.stringify({ dbPath, ...input })],
+      { cwd: path.join(import.meta.dirname, "../.."), timeout: 20_000 },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(stderr || error.message));
+          return;
+        }
+
+        try {
+          resolve(JSON.parse(stdout) as SettlePaymentResult);
+        } catch {
+          reject(new Error(stdout || "Worker returned no JSON."));
+        }
+      },
+    );
+  });
 }
 
 test("seed includes available, last-seat, duplicate, and payment-failure cases", () => {
@@ -268,4 +308,92 @@ test("unknown and inherited error query keys are ignored", () => {
   assert.equal(errorMessageForQuery("__proto__"), null);
   assert.equal(errorMessageForQuery("toString"), null);
   assert.equal(errorMessageForQuery("constructor"), null);
+});
+
+test("a class that has already started cannot be booked or confirmed", () => {
+  const seeded = seedDatabase(db);
+  const started = startTrialBooking(db, {
+    parentId: seeded.parents.jordan.id,
+    studentId: seeded.students.sam.id,
+    classId: seeded.classes.fractions.id,
+  });
+  assert.equal(started.ok, true);
+  if (!started.ok) return;
+
+  db.update(trialClasses)
+    .set({ startsAt: "2000-01-01T00:00:00.000Z" })
+    .where(eq(trialClasses.id, seeded.classes.fractions.id))
+    .run();
+
+  const resume = startTrialBooking(db, {
+    parentId: seeded.parents.jordan.id,
+    studentId: seeded.students.sam.id,
+    classId: seeded.classes.fractions.id,
+  });
+  const paid = settlePayment(db, {
+    parentId: seeded.parents.jordan.id,
+    bookingId: started.bookingId,
+    result: "success",
+  });
+
+  assert.deepEqual(resume, { ok: false, error: "class_started" });
+  assert.deepEqual(paid, { ok: false, error: "class_started" });
+  assert.equal(confirmedForClass(seeded.classes.fractions.id), 0);
+
+  const fresh = startTrialBooking(db, {
+    parentId: seeded.parents.maya.id,
+    studentId: seeded.students.leo.id,
+    classId: seeded.classes.fractions.id,
+  });
+  assert.deepEqual(fresh, { ok: false, error: "class_started" });
+});
+
+test("the seed CLI uses DATABASE_PATH when it is set", () => {
+  assert.equal(
+    resolveDatabasePath({ DATABASE_PATH: "/tmp/custom.db" }),
+    "/tmp/custom.db",
+  );
+  assert.equal(resolveDatabasePath({}), defaultDatabasePath);
+});
+
+test("two processes can confirm only one student for the last seat", async () => {
+  const seeded = seedDatabase(db);
+  const noraStart = startTrialBooking(db, {
+    parentId: seeded.parents.maya.id,
+    studentId: seeded.students.nora.id,
+    classId: seeded.classes.forces.id,
+  });
+  const samStart = startTrialBooking(db, {
+    parentId: seeded.parents.jordan.id,
+    studentId: seeded.students.sam.id,
+    classId: seeded.classes.forces.id,
+  });
+
+  assert.equal(noraStart.ok, true);
+  assert.equal(samStart.ok, true);
+  if (!noraStart.ok || !samStart.ok) return;
+
+  const [samPays, noraPays] = await Promise.all([
+    settleInWorker({
+      parentId: seeded.parents.jordan.id,
+      bookingId: samStart.bookingId,
+      result: "success",
+    }),
+    settleInWorker({
+      parentId: seeded.parents.maya.id,
+      bookingId: noraStart.bookingId,
+      result: "success",
+    }),
+  ]);
+
+  const outcomes = [samPays, noraPays].map((result) =>
+    result.ok ? result.status : result.error,
+  );
+
+  assert.equal(outcomes.filter((status) => status === "confirmed").length, 1);
+  assert.equal(
+    outcomes.filter((status) => status === "seat_unavailable").length,
+    1,
+  );
+  assert.equal(confirmedForClass(seeded.classes.forces.id), 4);
 });

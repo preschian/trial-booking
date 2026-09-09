@@ -7,6 +7,7 @@ import {
   students,
   trialClasses,
 } from "../db/schema";
+import { classHasStarted } from "./booking";
 
 export function listParents(db: AppDb) {
   return db.select().from(parents).all();
@@ -41,6 +42,7 @@ export function listClassesWithAvailability(db: AppDb) {
       ...trialClass,
       seatsTaken,
       seatsRemaining: Math.max(trialClass.capacity - seatsTaken, 0),
+      hasStarted: classHasStarted(trialClass.startsAt),
     };
   });
 }

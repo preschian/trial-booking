@@ -24,6 +24,7 @@ export default async function HomePage({
     startsLabel: formatClassTime(trialClass.startsAt),
     seatsRemaining: trialClass.seatsRemaining,
     capacity: trialClass.capacity,
+    hasStarted: trialClass.hasStarted,
   }));
 
   const queryError = errorMessageForQuery(params.error);

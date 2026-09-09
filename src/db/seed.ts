@@ -10,6 +10,13 @@ import {
 
 const SEED_PARENT_EMAIL = "maya.chen@example.com";
 
+function utcDaysFromNow(days: number, hours = 16) {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  date.setUTCHours(hours, 0, 0, 0);
+  return date.toISOString();
+}
+
 export function seedIfEmpty(db: AppDb) {
   const existing = db
     .select({ value: count() })
@@ -68,17 +75,17 @@ export function seedDatabase(db: AppDb) {
     .values([
       {
         title: "Fractions Lab",
-        startsAt: "2026-09-16T16:00:00.000Z",
+        startsAt: utcDaysFromNow(7),
         capacity: 4,
       },
       {
         title: "Forces and Motion",
-        startsAt: "2026-09-17T16:00:00.000Z",
+        startsAt: utcDaysFromNow(8),
         capacity: 4,
       },
       {
         title: "Algebra Foundations",
-        startsAt: "2026-09-18T15:00:00.000Z",
+        startsAt: utcDaysFromNow(9, 15),
         capacity: 4,
       },
     ])

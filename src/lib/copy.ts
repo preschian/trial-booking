@@ -7,6 +7,7 @@ export const errorCopy: Record<BookingError, string> = {
   not_found: "We could not find that booking or class.",
   duplicate: "This child already has a confirmed seat in that class.",
   class_full: "That class has no remaining seats.",
+  class_started: "That class has already started.",
   not_pending: "This booking is not waiting for payment.",
   invalid_input: "Check the selected child and class, then try again.",
 };

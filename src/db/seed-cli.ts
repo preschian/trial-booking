@@ -1,6 +1,7 @@
-import { createAppDb } from "./client";
+import { createAppDb, resolveDatabasePath } from "./client";
 import { seedDatabase } from "./seed";
 
-const { db } = createAppDb();
+const databasePath = resolveDatabasePath();
+const { db } = createAppDb(databasePath);
 seedDatabase(db);
-console.log("Seeded trial booking data.");
+console.log(`Seeded trial booking data at ${databasePath}.`);

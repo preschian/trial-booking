@@ -11,7 +11,14 @@ export const defaultDatabasePath = path.join(
   "trial-booking.db",
 );
 
-export function createAppDb(databasePath = defaultDatabasePath) {
+export function resolveDatabasePath(
+  env: { DATABASE_PATH?: string } = process.env,
+) {
+  const configured = env.DATABASE_PATH?.trim();
+  return configured ? configured : defaultDatabasePath;
+}
+
+export function openAppDb(databasePath: string) {
   if (databasePath !== ":memory:") {
     fs.mkdirSync(path.dirname(databasePath), { recursive: true });
   }
@@ -21,10 +28,16 @@ export function createAppDb(databasePath = defaultDatabasePath) {
   sqlite.pragma("foreign_keys = ON");
   sqlite.pragma("busy_timeout = 5000");
 
-  const db = drizzle({ client: sqlite, schema });
-  migrate(db, { migrationsFolder: path.join(process.cwd(), "drizzle") });
+  return {
+    sqlite,
+    db: drizzle({ client: sqlite, schema }),
+  };
+}
 
-  return { sqlite, db };
+export function createAppDb(databasePath = defaultDatabasePath) {
+  const appDb = openAppDb(databasePath);
+  migrate(appDb.db, { migrationsFolder: path.join(process.cwd(), "drizzle") });
+  return appDb;
 }
 
 export type AppDb = ReturnType<typeof createAppDb>["db"];
