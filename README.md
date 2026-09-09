@@ -104,7 +104,7 @@ Writers take the write lock at the start of the transaction, so the confirmed co
 | Check | UI | Backend | Database | Job |
 | --- | --- | --- | --- | --- |
 | Remaining seats | display only; full classes disabled | yes, at confirm | no | no |
-| Class already started | started classes disabled | yes, at start and confirm | no | no |
+| Class already started | started classes and expired checkouts disabled | yes, at start and confirm | no | no |
 | Duplicate child+class | error copy | yes | unique index | no |
 | Parent owns child | hidden by the form | yes | no | no |
 | Payment failure stays off roster | status page | yes | status value | no |

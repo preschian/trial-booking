@@ -42,6 +42,10 @@ export function classHasStarted(startsAt: string, at = new Date()) {
   return Number.isNaN(start) || start <= at.getTime();
 }
 
+export function canAcceptPayment(status: BookingStatus, startsAt: string) {
+  return status === "pending_payment" && !classHasStarted(startsAt);
+}
+
 function isUniqueConflict(error: unknown): boolean {
   if (typeof error !== "object" || error === null || !("code" in error)) {
     return false;

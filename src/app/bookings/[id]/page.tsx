@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { PayForm } from "@/app/bookings/[id]/pay-form";
 import { SiteHeader } from "@/app/site-header";
-import { formatClassTime, statusCopy } from "@/lib/copy";
+import { canAcceptPayment } from "@/lib/booking";
+import { classStartedCopy, formatClassTime, statusCopy } from "@/lib/copy";
 import {
   getBookingForParent,
   listParents,
@@ -36,8 +37,18 @@ export default async function BookingPage({
   }
 
   const attempts = listPaymentAttempts(db, bookingId);
-  const copy = statusCopy[detail.booking.status];
-  const canPay = detail.booking.status === "pending_payment";
+  const canPay = canAcceptPayment(
+    detail.booking.status,
+    detail.trialClass.startsAt,
+  );
+  const copy =
+    detail.booking.status === "pending_payment" && !canPay
+      ? classStartedCopy
+      : statusCopy[detail.booking.status];
+  const statusLabel =
+    detail.booking.status === "pending_payment" && !canPay
+      ? "class started"
+      : detail.booking.status.replaceAll("_", " ");
 
   return (
     <>
@@ -63,7 +74,7 @@ export default async function BookingPage({
           </div>
           <div>
             <dt>Status</dt>
-            <dd>{detail.booking.status.replaceAll("_", " ")}</dd>
+            <dd>{statusLabel}</dd>
           </div>
         </dl>
 

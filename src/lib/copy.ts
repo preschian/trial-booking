@@ -45,6 +45,11 @@ export const statusCopy: Record<BookingStatus, { title: string; body: string }> 
     },
   };
 
+export const classStartedCopy = {
+  title: "Class has started",
+  body: "Payment is closed for this class. The child was not added to the roster.",
+};
+
 const classTimeFormatter = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
   month: "short",

@@ -14,6 +14,7 @@ import {
 import { bookings, paymentAttempts, trialClasses } from "../db/schema";
 import { seedDatabase } from "../db/seed";
 import {
+  canAcceptPayment,
   settlePayment,
   startTrialBooking,
   type SettlePaymentResult,
@@ -346,6 +347,21 @@ test("a class that has already started cannot be booked or confirmed", () => {
     classId: seeded.classes.fractions.id,
   });
   assert.deepEqual(fresh, { ok: false, error: "class_started" });
+});
+
+test("payment controls are only offered while the class is still upcoming", () => {
+  assert.equal(
+    canAcceptPayment("pending_payment", "2099-01-01T00:00:00.000Z"),
+    true,
+  );
+  assert.equal(
+    canAcceptPayment("pending_payment", "2000-01-01T00:00:00.000Z"),
+    false,
+  );
+  assert.equal(
+    canAcceptPayment("confirmed", "2099-01-01T00:00:00.000Z"),
+    false,
+  );
 });
 
 test("the seed CLI uses DATABASE_PATH when it is set", () => {
