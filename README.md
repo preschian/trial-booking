@@ -43,6 +43,7 @@ About 2 hours.
 - One booking row per child+class. A failed payment can be retried on the same row.
 - A class that has already started cannot be booked or confirmed. Seed class times are a week out so the demo stays bookable.
 - Demo parent cookies are per browser profile. Use one normal window and one private/incognito window for the last-seat race.
+- The roster is a public demo page. There is no teacher login.
 
 ## Seed data
 
