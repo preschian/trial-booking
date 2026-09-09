@@ -2,7 +2,7 @@
 
 ## Which AI tools I used
 
-Cursor (agent) with the in-editor model, plus the Chrome DevTools MCP for browser checks and React Doctor for the health scan.
+Cursor CLI with Grok 4.6, plus the Chrome DevTools MCP for browser checks and React Doctor for the health scan.
 
 ## What I used AI for
 
