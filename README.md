@@ -32,7 +32,7 @@ The SQLite file lives at `data/trial-booking.db` and is created on first run. `p
 
 ## Time spent
 
-About 3.5 hours.
+About 1.5 hours.
 
 ## Assumptions
 
