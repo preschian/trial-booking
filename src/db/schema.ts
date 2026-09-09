@@ -10,6 +10,7 @@ export const bookingStatuses = [
   "pending_payment",
   "confirmed",
   "payment_failed",
+  "seat_unavailable",
   "cancelled",
 ] as const;
 

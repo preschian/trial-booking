@@ -1,26 +1,320 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #f4efe6;
+  --ink: #1c1712;
+  --muted: #6b6258;
+  --pine: #16332c;
+  --pine-hover: #21463d;
+  --line: #ddd3c4;
+  --card: #fffaf3;
+  --banner: #f3e2d4;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-dm-sans);
+  --font-serif: var(--font-newsreader);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: var(--paper);
+  color: var(--ink);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+.brand {
+  font-family: var(--font-serif), ui-serif, Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: 2.4rem;
+  line-height: 1.15;
+}
+
+h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  font-size: 1.4rem;
+  line-height: 1.1;
+}
+
+.brand span {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.site-header nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.site-header nav a {
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.site-header nav a:hover {
+  text-decoration: underline;
+}
+
+.parent-switcher {
+  display: flex;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.parent-switcher label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.page {
+  width: min(720px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2.5rem 0 4rem;
+}
+
+.intro {
+  margin-bottom: 2rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.eyebrow a {
+  text-decoration: none;
+}
+
+.stack,
+.class-list,
+.pay-actions,
+.attempts {
+  display: grid;
+  gap: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+select,
+button,
+input {
+  font: inherit;
+}
+
+select {
+  appearance: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.7rem 0.8rem;
+}
+
+.class-list {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.class-list legend {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.class-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.85rem;
+  align-items: start;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.class-card strong,
+.class-card em,
+.class-card small {
+  display: block;
+}
+
+.class-card em {
+  margin: 0.15rem 0 0.35rem;
+  font-style: normal;
+  color: var(--muted);
+}
+
+.class-card small {
+  color: var(--muted);
+}
+
+.class-card.is-full {
+  opacity: 0.55;
+}
+
+.button,
+.button-quiet,
+.button-secondary {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.75rem 1.1rem;
+  cursor: pointer;
+}
+
+.button {
+  background: var(--pine);
+  color: #f7f3eb;
+}
+
+.button:hover,
+.button-quiet:hover {
+  background: var(--pine-hover);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button-secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.button-quiet {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  padding: 0.55rem 0.85rem;
+}
+
+.banner {
+  padding: 0.9rem 1rem;
+  background: var(--banner);
+  border-radius: 10px;
+}
+
+.facts {
+  display: grid;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.facts div {
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.facts dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.facts dd {
+  margin: 0.2rem 0 0;
+}
+
+.facts dd span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.attempts ul,
+.roster-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roster-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.roster-card {
+  padding: 1.2rem 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.roster-card header p,
+.roster-card li span {
+  color: var(--muted);
+}
+
+.roster-card li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.roster-card footer {
+  margin-top: 1rem;
+}
+
+.roster-card h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pay-actions {
+  margin: 1.5rem 0;
 }

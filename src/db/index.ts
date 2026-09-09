@@ -1,34 +1,25 @@
 import "server-only";
 
-import fs from "node:fs";
-import path from "node:path";
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "./schema";
+import { createAppDb, defaultDatabasePath } from "./client";
+import { seedIfEmpty } from "./seed";
 
-const DATABASE_PATH =
-  process.env.DATABASE_PATH ??
-  path.join(process.cwd(), "data", "trial-booking.db");
+const DATABASE_PATH = process.env.DATABASE_PATH ?? defaultDatabasePath;
 
-function createDb() {
-  fs.mkdirSync(path.dirname(DATABASE_PATH), { recursive: true });
-
-  const sqlite = new Database(DATABASE_PATH);
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
-  sqlite.pragma("busy_timeout = 5000");
-
-  return drizzle({ client: sqlite, schema });
+function getAppDb() {
+  const appDb = createAppDb(DATABASE_PATH);
+  seedIfEmpty(appDb.db);
+  return appDb;
 }
 
 const globalForDb = globalThis as unknown as {
-  db?: ReturnType<typeof createDb>;
+  appDb?: ReturnType<typeof getAppDb>;
 };
 
-export const db = globalForDb.db ?? createDb();
+const appDb = globalForDb.appDb ?? getAppDb();
 
 if (process.env.NODE_ENV !== "production") {
-  globalForDb.db = db;
+  globalForDb.appDb = appDb;
 }
 
+export const db = appDb.db;
 export { DATABASE_PATH };

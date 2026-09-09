@@ -7,8 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "tsx --test src/lib/booking.test.ts",
     "react-doctor": "react-doctor",
     "db:push": "mkdir -p data && drizzle-kit push",
+    "db:seed": "tsx src/db/seed-cli.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

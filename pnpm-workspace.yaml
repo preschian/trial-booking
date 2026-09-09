@@ -3,3 +3,31 @@ allowBuilds:
   esbuild: true
   sharp: false
   unrs-resolver: false
+
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - "@types/react-dom"
+  - "@typescript-eslint/eslint-plugin"
+  - "@typescript-eslint/parser"
+  - "@typescript-eslint/project-service"
+  - "@typescript-eslint/scope-manager"
+  - "@typescript-eslint/tsconfig-utils"
+  - "@typescript-eslint/type-utils"
+  - "@typescript-eslint/types"
+  - "@typescript-eslint/typescript-estree"
+  - "@typescript-eslint/utils"
+  - "@typescript-eslint/visitor-keys"
+  - baseline-browser-mapping
+  - browserslist
+  - electron-to-chromium
+  - playwright-core
+  - postcss
+  - typescript-eslint
+
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  - eslint-import-resolver-typescript@3.10.1
+  - semver@6.3.1
+  - undici-types@6.21.0
+
+blockExoticSubdeps: true
