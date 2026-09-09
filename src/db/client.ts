@@ -11,10 +11,8 @@ export const defaultDatabasePath = path.join(
   "trial-booking.db",
 );
 
-export function resolveDatabasePath(
-  env: { DATABASE_PATH?: string } = process.env,
-) {
-  const configured = env.DATABASE_PATH?.trim();
+export function resolveDatabasePath(env?: { DATABASE_PATH?: string }) {
+  const configured = (env ?? process.env).DATABASE_PATH?.trim();
   return configured ? configured : defaultDatabasePath;
 }
 
