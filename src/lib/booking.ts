@@ -1,4 +1,4 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import type { AppDb } from "../db/client";
 import {
   bookings,
@@ -26,8 +26,25 @@ export type SettlePaymentResult =
   | { ok: true; status: BookingStatus }
   | { ok: false; error: BookingError };
 
+const resumableStatuses = [
+  "payment_failed",
+  "seat_unavailable",
+  "cancelled",
+] as const;
+
 function now(): string {
   return new Date().toISOString();
+}
+
+function isUniqueConflict(error: unknown): boolean {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return false;
+  }
+
+  return (
+    error.code === "SQLITE_CONSTRAINT_UNIQUE" ||
+    error.code === "SQLITE_CONSTRAINT"
+  );
 }
 
 function getStudentForParent(
@@ -54,71 +71,139 @@ function confirmedCount(db: AppDb, classId: number): number {
   return row?.value ?? 0;
 }
 
+function bookingForStudentAndClass(
+  db: AppDb,
+  studentId: number,
+  classId: number,
+) {
+  return db
+    .select()
+    .from(bookings)
+    .where(
+      and(eq(bookings.studentId, studentId), eq(bookings.classId, classId)),
+    )
+    .get();
+}
+
+function resultForExisting(
+  existing: { id: number; status: BookingStatus },
+): StartBookingResult {
+  if (existing.status === "confirmed") {
+    return { ok: false, error: "duplicate" };
+  }
+
+  if (existing.status === "pending_payment") {
+    return { ok: true, bookingId: existing.id };
+  }
+
+  return { ok: false, error: "invalid_input" };
+}
+
 export function startTrialBooking(
   db: AppDb,
   input: { parentId: number; studentId: number; classId: number },
 ): StartBookingResult {
-  const student = getStudentForParent(db, input.studentId, input.parentId);
-  if (!student) {
-    return { ok: false, error: "forbidden" };
-  }
+  return db.transaction(
+    (tx) => {
+      const store = tx as unknown as AppDb;
+      const student = getStudentForParent(
+        store,
+        input.studentId,
+        input.parentId,
+      );
+      if (!student) {
+        return { ok: false, error: "forbidden" };
+      }
 
-  const trialClass = db
-    .select()
-    .from(trialClasses)
-    .where(eq(trialClasses.id, input.classId))
-    .get();
+      const trialClass = store
+        .select()
+        .from(trialClasses)
+        .where(eq(trialClasses.id, input.classId))
+        .get();
 
-  if (!trialClass) {
-    return { ok: false, error: "not_found" };
-  }
+      if (!trialClass) {
+        return { ok: false, error: "not_found" };
+      }
 
-  const existing = db
-    .select()
-    .from(bookings)
-    .where(
-      and(
-        eq(bookings.studentId, input.studentId),
-        eq(bookings.classId, input.classId),
-      ),
-    )
-    .get();
+      const existing = bookingForStudentAndClass(
+        store,
+        input.studentId,
+        input.classId,
+      );
 
-  if (existing?.status === "confirmed") {
-    return { ok: false, error: "duplicate" };
-  }
+      if (existing?.status === "confirmed") {
+        return { ok: false, error: "duplicate" };
+      }
 
-  if (existing?.status === "pending_payment") {
-    return { ok: true, bookingId: existing.id };
-  }
+      if (existing?.status === "pending_payment") {
+        return { ok: true, bookingId: existing.id };
+      }
 
-  if (confirmedCount(db, input.classId) >= trialClass.capacity) {
-    return { ok: false, error: "class_full" };
-  }
+      if (confirmedCount(store, input.classId) >= trialClass.capacity) {
+        return { ok: false, error: "class_full" };
+      }
 
-  if (existing) {
-    db.update(bookings)
-      .set({ status: "pending_payment", updatedAt: now() })
-      .where(eq(bookings.id, existing.id))
-      .run();
-    return { ok: true, bookingId: existing.id };
-  }
+      if (existing) {
+        const resumed = store
+          .update(bookings)
+          .set({ status: "pending_payment", updatedAt: now() })
+          .where(
+            and(
+              eq(bookings.id, existing.id),
+              inArray(bookings.status, [...resumableStatuses]),
+            ),
+          )
+          .run();
 
-  const created = db
-    .insert(bookings)
-    .values({
-      studentId: input.studentId,
-      classId: input.classId,
-      status: "pending_payment",
-    })
-    .returning()
-    .get();
+        if (resumed.changes === 0) {
+          const latest = bookingForStudentAndClass(
+            store,
+            input.studentId,
+            input.classId,
+          );
+          if (!latest) {
+            return { ok: false, error: "not_found" };
+          }
+          return resultForExisting(latest);
+        }
 
-  if (!created) {
-    return { ok: false, error: "invalid_input" };
-  }
+        return { ok: true, bookingId: existing.id };
+      }
 
-  return { ok: true, bookingId: created.id };
+      try {
+        const created = store
+          .insert(bookings)
+          .values({
+            studentId: input.studentId,
+            classId: input.classId,
+            status: "pending_payment",
+          })
+          .returning()
+          .get();
+
+        if (!created) {
+          return { ok: false, error: "invalid_input" };
+        }
+
+        return { ok: true, bookingId: created.id };
+      } catch (error) {
+        if (!isUniqueConflict(error)) {
+          throw error;
+        }
+
+        const latest = bookingForStudentAndClass(
+          store,
+          input.studentId,
+          input.classId,
+        );
+        if (!latest) {
+          return { ok: false, error: "invalid_input" };
+        }
+        return resultForExisting(latest);
+      }
+    },
+    { behavior: "immediate" },
+  );
 }
 
 export function settlePayment(
@@ -157,10 +242,21 @@ export function settlePayment(
         .run();
 
       if (input.result === "failure") {
-        store.update(bookings)
+        const failed = store
+          .update(bookings)
           .set({ status: "payment_failed", updatedAt: now() })
-          .where(eq(bookings.id, booking.id))
+          .where(
+            and(
+              eq(bookings.id, booking.id),
+              eq(bookings.status, "pending_payment"),
+            ),
+          )
           .run();
+
+        if (failed.changes === 0) {
+          return { ok: false, error: "not_pending" };
+        }
+
         return { ok: true, status: "payment_failed" };
       }
 
@@ -178,10 +274,20 @@ export function settlePayment(
       const nextStatus: BookingStatus =
         taken >= trialClass.capacity ? "seat_unavailable" : "confirmed";
 
-      store.update(bookings)
+      const updated = store
+        .update(bookings)
         .set({ status: nextStatus, updatedAt: now() })
-        .where(eq(bookings.id, booking.id))
+        .where(
+          and(
+            eq(bookings.id, booking.id),
+            eq(bookings.status, "pending_payment"),
+          ),
+        )
         .run();
+
+      if (updated.changes === 0) {
+        return { ok: false, error: "not_pending" };
+      }
 
       return { ok: true, status: nextStatus };
     },

@@ -28,7 +28,7 @@ The SQLite file lives at `data/trial-booking.db` and is created on first run. `p
 - Parent booking flow: choose a demo parent, select a child and class, then mock-pay
 - Booking status after payment, including last-seat loss
 - Teacher roster of confirmed students
-- Tests for duplicates, payment failure, overbooking the last seat, and ownership
+- Tests for duplicates, payment failure, last-seat overbooking, ownership, retries, and invalid error query keys
 
 ## Time spent
 
@@ -39,8 +39,9 @@ About 1.5 hours.
 - This is a demo, not production auth. The header parent switcher is a stand-in for a logged-in parent.
 - Mock payment is an explicit succeed/fail button. There is no card processor.
 - `pending_payment` does **not** hold a seat. Selection can race; confirmation cannot.
-- A successful payment that loses the last seat is recorded as `seat_unavailable` and treated as a refund, not as a roster seat.
+- `seat_unavailable` means the mock payment succeeded and no seat was taken. It does not run a real refund.
 - One booking row per child+class. A failed payment can be retried on the same row.
+- Demo parent cookies are per browser profile. Use one normal window and one private/incognito window for the last-seat race.
 
 ## Seed data
 
@@ -49,7 +50,7 @@ After `pnpm db:seed`:
 | Class | Setup |
 | --- | --- |
 | Fractions Lab | Seats open. Nora Chen has a `payment_failed` row (retry from the book form). |
-| Forces and Motion | 3 confirmed students, 1 seat left. Use Maya Chen (Nora) and Jordan Hale (Sam) for the last-seat race. |
+| Forces and Motion | 3 confirmed students, 1 seat left. Use Maya Chen (Nora) and Jordan Hale (Sam) in two isolated browser sessions for the last-seat race. |
 | Algebra Foundations | Leo Chen is already confirmed. Booking Leo again is the duplicate case. |
 
 ## Backend design
@@ -74,7 +75,7 @@ Unique index on `bookings (student_id, class_id)`.
 
 ### Duplicate bookings
 
-The unique index allows only one row per child and class. `startTrialBooking` also rejects a second attempt when the existing row is already `confirmed`. A `payment_failed` or `seat_unavailable` row can be moved back to `pending_payment`.
+The unique index allows only one row per child and class. `startTrialBooking` runs in an immediate transaction. Resume only updates rows that are still `payment_failed`, `seat_unavailable`, or `cancelled`. A concurrent unique insert is treated as a conflict and re-read. Confirmed rows stay confirmed.
 
 ### Payment failure
 

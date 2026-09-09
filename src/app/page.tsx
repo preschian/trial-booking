@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import { db } from "@/db";
 import { BookForm } from "@/app/book-form";
 import { SiteHeader } from "@/app/site-header";
-import { errorCopy, formatClassTime } from "@/lib/copy";
+import { errorMessageForQuery, formatClassTime } from "@/lib/copy";
 import { listClassesWithAvailability, listParents, listStudentsForParent } from "@/lib/queries";
 import { requireAuth } from "@/lib/session";
-import type { BookingError } from "@/lib/booking";
 
 export const metadata: Metadata = {
   title: "Book a trial",
@@ -27,10 +26,7 @@ export default async function HomePage({
     capacity: trialClass.capacity,
   }));
 
-  const queryError =
-    params.error && params.error in errorCopy
-      ? errorCopy[params.error as BookingError]
-      : null;
+  const queryError = errorMessageForQuery(params.error);
 
   return (
     <>

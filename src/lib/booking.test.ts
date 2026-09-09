@@ -5,9 +5,10 @@ import path from "node:path";
 import { after, before, test } from "node:test";
 import { eq } from "drizzle-orm";
 import { createAppDb } from "../db/client";
-import { bookings } from "../db/schema";
+import { bookings, paymentAttempts } from "../db/schema";
 import { seedDatabase } from "../db/seed";
 import { settlePayment, startTrialBooking } from "./booking";
+import { errorCopy, errorMessageForQuery } from "./copy";
 
 const tempDir = mkdtempSync(path.join(tmpdir(), "trial-booking-"));
 const dbPath = path.join(tempDir, "test.db");
@@ -105,6 +106,14 @@ test("payment failure records an attempt and does not confirm a seat", () => {
   assert.deepEqual(settled, { ok: true, status: "payment_failed" });
   assert.equal(confirmedForClass(seeded.classes.fractions.id), 0);
 
+  const attempts = db
+    .select()
+    .from(paymentAttempts)
+    .where(eq(paymentAttempts.bookingId, started.bookingId))
+    .all();
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0]?.result, "failure");
+
   const booking = db
     .select()
     .from(bookings)
@@ -156,4 +165,107 @@ test("a parent cannot book a child that is not theirs", () => {
   });
 
   assert.deepEqual(result, { ok: false, error: "forbidden" });
+});
+
+test("a second payment on the same booking is rejected", () => {
+  const seeded = seedDatabase(db);
+  const started = startTrialBooking(db, {
+    parentId: seeded.parents.jordan.id,
+    studentId: seeded.students.sam.id,
+    classId: seeded.classes.fractions.id,
+  });
+  assert.equal(started.ok, true);
+  if (!started.ok) return;
+
+  const first = settlePayment(db, {
+    parentId: seeded.parents.jordan.id,
+    bookingId: started.bookingId,
+    result: "success",
+  });
+  const second = settlePayment(db, {
+    parentId: seeded.parents.jordan.id,
+    bookingId: started.bookingId,
+    result: "success",
+  });
+
+  assert.deepEqual(first, { ok: true, status: "confirmed" });
+  assert.deepEqual(second, { ok: false, error: "not_pending" });
+});
+
+test("a parent cannot pay for another family's booking", () => {
+  const seeded = seedDatabase(db);
+  const started = startTrialBooking(db, {
+    parentId: seeded.parents.jordan.id,
+    studentId: seeded.students.sam.id,
+    classId: seeded.classes.fractions.id,
+  });
+  assert.equal(started.ok, true);
+  if (!started.ok) return;
+
+  const result = settlePayment(db, {
+    parentId: seeded.parents.maya.id,
+    bookingId: started.bookingId,
+    result: "success",
+  });
+
+  assert.deepEqual(result, { ok: false, error: "forbidden" });
+});
+
+test("retrying after a confirmed payment cannot move the row back to pending", () => {
+  const seeded = seedDatabase(db);
+  const started = startTrialBooking(db, {
+    parentId: seeded.parents.maya.id,
+    studentId: seeded.students.nora.id,
+    classId: seeded.classes.fractions.id,
+  });
+  assert.equal(started.ok, true);
+  if (!started.ok) return;
+
+  const paid = settlePayment(db, {
+    parentId: seeded.parents.maya.id,
+    bookingId: started.bookingId,
+    result: "success",
+  });
+  const retry = startTrialBooking(db, {
+    parentId: seeded.parents.maya.id,
+    studentId: seeded.students.nora.id,
+    classId: seeded.classes.fractions.id,
+  });
+
+  const booking = db
+    .select()
+    .from(bookings)
+    .where(eq(bookings.id, started.bookingId))
+    .get();
+
+  assert.deepEqual(paid, { ok: true, status: "confirmed" });
+  assert.deepEqual(retry, { ok: false, error: "duplicate" });
+  assert.equal(booking?.status, "confirmed");
+});
+
+test("starting the same booking twice returns the same pending row", () => {
+  const seeded = seedDatabase(db);
+  const first = startTrialBooking(db, {
+    parentId: seeded.parents.jordan.id,
+    studentId: seeded.students.sam.id,
+    classId: seeded.classes.fractions.id,
+  });
+  const second = startTrialBooking(db, {
+    parentId: seeded.parents.jordan.id,
+    studentId: seeded.students.sam.id,
+    classId: seeded.classes.fractions.id,
+  });
+
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  if (!first.ok || !second.ok) return;
+  assert.equal(first.bookingId, second.bookingId);
+});
+
+test("unknown and inherited error query keys are ignored", () => {
+  assert.equal(errorMessageForQuery(undefined), null);
+  assert.equal(errorMessageForQuery("duplicate"), errorCopy.duplicate);
+  assert.equal(errorMessageForQuery("__proto__"), null);
+  assert.equal(errorMessageForQuery("toString"), null);
+  assert.equal(errorMessageForQuery("constructor"), null);
 });

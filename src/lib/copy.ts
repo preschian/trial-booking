@@ -11,6 +11,15 @@ export const errorCopy: Record<BookingError, string> = {
   invalid_input: "Check the selected child and class, then try again.",
 };
 
+export function errorMessageForQuery(code: string | undefined): string | null {
+  if (!code || !Object.hasOwn(errorCopy, code)) {
+    return null;
+  }
+
+  const message = errorCopy[code as BookingError];
+  return typeof message === "string" ? message : null;
+}
+
 export const statusCopy: Record<BookingStatus, { title: string; body: string }> =
   {
     pending_payment: {
