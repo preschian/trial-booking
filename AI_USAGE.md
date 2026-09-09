@@ -29,6 +29,6 @@ I would write the booking state machine and race invariant first, as a short spe
 
 ## How I verified the final implementation
 
-- `pnpm test` for duplicate, payment failure, last-seat, ownership, retries, and invalid error query keys
+- `pnpm check` for tests, lint, and TypeScript
 - `pnpm exec react-doctor --yes --scope full` to a 100 score
 - Chrome DevTools MCP: parent switch, book, pay success/fail, roster, last-seat path, and `?error=__proto__` no longer 500

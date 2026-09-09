@@ -17,7 +17,7 @@ pnpm dev
 Open [http://localhost:3000](http://localhost:3000).
 
 ```bash
-pnpm test            # booking invariants
+pnpm check           # tests, lint, TypeScript
 pnpm exec react-doctor --yes --scope full
 ```
 
